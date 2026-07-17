@@ -8,11 +8,6 @@ import fitz  # PyMuPDF (Não precisa de Poppler!)
 import streamlit as st
 
 # CONFIGURAÇÃO DA API
-import os
-
-CLAVE_API = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=CLAVE_API)
-
 st.set_page_config(page_title="Cortador de Caixas de PDF", layout="centered")
 st.title("📦 Extrator e Cortador de Caixas (PDF)")
 st.write("Insira o PDF com as páginas dos medicamentos. O sistema vai extrair, recortar e formatar em 500x500 com fundo branco.")
@@ -20,21 +15,27 @@ st.write("Insira o PDF com as páginas dos medicamentos. O sistema vai extrair, 
 def image_to_base64(pil_image):
     """Converte uma imagem do Pillow diretamente para Base64 sem salvar no disco."""
     buffered = io.BytesIO()
-    pil_image.save(buffered, format="JPEG")
+    # Qualidade alta preserva os detalhes que a IA usa para localizar as bordas.
+    pil_image.save(buffered, format="JPEG", quality=95)
     return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
 def identificar_caixas_na_pagina(pil_image):
     """Envia a página do PDF para o GPT-4o e pede a lista de coordenadas das caixas."""
     base64_image = image_to_base64(pil_image)
-    
+    width, height = pil_image.size
+
     prompt = (
-        "Analise esta página de documento e identifique todas as caixas de remédio/produtos presentes. "
-        "Retorne estritamente um array JSON contendo as coordenadas de cada caixa encontrada na escala de 0 a 1000. "
+        f"Esta imagem tem exatamente {width} pixels de largura e {height} pixels de altura. "
+        "Analise a página e identifique todas as caixas de remédio/produtos presentes. "
+        "Para cada caixa, retorne uma bounding box que envolva a caixa INTEIRA, "
+        "incluindo todas as bordas — nunca corte parte do produto. "
+        "Retorne estritamente um array JSON com as coordenadas na escala de 0 a 1000 "
+        "(onde 0 é o topo/esquerda e 1000 é a base/direita da imagem). "
         "O formato deve ser exatamente uma lista de objetos: "
         '[{"ymin": valor, "xmin": valor, "ymax": valor, "xmax": valor}, ...]. '
-        "Não inclua nenhum texto explicativo, apenas o JSON purificado."
+        "Não inclua nenhum texto explicativo, apenas o JSON puro."
     )
-    
+
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -42,7 +43,15 @@ def identificar_caixas_na_pagina(pil_image):
                 "role": "user",
                 "content": [
                     {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                    {
+                        "type": "image_url",
+                        # "detail": "high" evita que a OpenAI reduza a imagem,
+                        # melhorando muito a precisão das coordenadas.
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}",
+                            "detail": "high"
+                        }
+                    }
                 ]
             }
         ],
@@ -96,6 +105,10 @@ if uploaded_file is not None:
                     # Busca as caixas daquela página via API
                     lista_coordenadas = identificar_caixas_na_pagina(pagina_pil)
                     
+                    # Debug: mostra o que a IA retornou (útil para validar os recortes)
+                    with st.expander(f"🔍 Coordenadas retornadas pela IA (Página {i+1})"):
+                        st.json(lista_coordenadas)
+
                     if not lista_coordenadas:
                         st.warning(f"Nenhuma caixa detectada na página {i+1}.")
                         continue
@@ -109,7 +122,16 @@ if uploaded_file is not None:
                         xmin = int((coords["xmin"] / 1000) * width)
                         ymax = int((coords["ymax"] / 1000) * height)
                         xmax = int((coords["xmax"] / 1000) * width)
-                        
+
+                        # Margem de segurança: se a IA errar um pouco a borda,
+                        # a caixa não vem cortada. 3% da dimensão da página.
+                        margem_x = int(width * 0.03)
+                        margem_y = int(height * 0.03)
+                        xmin = max(0, xmin - margem_x)
+                        ymin = max(0, ymin - margem_y)
+                        xmax = min(width, xmax + margem_x)
+                        ymax = min(height, ymax + margem_y)
+
                         # Evita cortes inválidos
                         if (xmax - xmin) <= 0 or (ymax - ymin) <= 0:
                             continue
