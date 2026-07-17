@@ -9,9 +9,7 @@ import streamlit as st
 
 # CONFIGURAÇÃO DA API
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
 CLAVE_API = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=CLAVE_API)
 
