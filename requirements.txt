@@ -1,4 +1,7 @@
-openai
-streamlit
-opencv-python-headless
-PyMuPDF
+customtkinter
+pymupdf
+opencv-python
+Pillow
+numpy
+ultralytics
+rembg
