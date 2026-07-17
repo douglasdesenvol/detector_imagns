@@ -124,8 +124,8 @@ if uploaded_file is not None:
 
                         # Margem de segurança: se a IA errar um pouco a borda,
                         # a caixa não vem cortada. 3% da dimensão da página.
-                        margem_x = int(width * 0.10)
-                        margem_y = int(height * 0.10)
+                        margem_x = int(width * 0.08)
+                        margem_y = int(height * 0.08)
                         xmin = max(0, xmin - margem_x)
                         ymin = max(0, ymin - margem_y)
                         xmax = min(width, xmax + margem_x)
