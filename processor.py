@@ -32,7 +32,11 @@ def identificar_caixas_na_pagina(pil_image):
     "Para cada caixa, retorne uma bounding box ampla que envolva a caixa INTEIRA e "
     "também QUALQUER TEXTO ou título do medicamento que esteja escrito logo acima ou ao lado dela. "
     "Não economize espaço: é melhor deixar a caixinha maior do que cortar as bordas ou os textos do produto. "
-    "Retorne estritamente um array JSON com as coordenadas na escala de 0 a 1000..."
+    "Retorne ESTRITAMENTE um array JSON, sem texto extra, onde cada elemento é um objeto com "
+    "exatamente estas quatro chaves em minúsculas: \"xmin\", \"ymin\", \"xmax\", \"ymax\". "
+    "Os valores devem estar na escala inteira de 0 a 1000. "
+    "Exemplo de formato: [{\"xmin\": 100, \"ymin\": 150, \"xmax\": 400, \"ymax\": 500}]. "
+    "Se não houver nenhuma caixa, retorne um array vazio []."
 )
 
     response = client.chat.completions.create(
@@ -59,7 +63,56 @@ def identificar_caixas_na_pagina(pil_image):
     
     resposta_texto = response.choices[0].message.content
     resposta_limpa = re.sub(r"```json|```", "", resposta_texto).strip()
-    return json.loads(resposta_limpa)
+    dados = json.loads(resposta_limpa)
+    return normalizar_coordenadas(dados)
+
+
+def normalizar_coordenadas(dados):
+    """Aceita os vários formatos que o GPT pode devolver e converte tudo para
+    uma lista de dicts com as chaves xmin/ymin/xmax/ymax."""
+    # Caso a IA embrulhe o array dentro de um objeto (ex.: {"boxes": [...]})
+    if isinstance(dados, dict):
+        for valor in dados.values():
+            if isinstance(valor, list):
+                dados = valor
+                break
+        else:
+            dados = [dados]  # é um único objeto de coordenadas
+
+    # Nomes alternativos que a IA pode usar para cada borda
+    aliases = {
+        "xmin": ["xmin", "x_min", "x1", "left", "x0"],
+        "ymin": ["ymin", "y_min", "y1", "top", "y0"],
+        "xmax": ["xmax", "x_max", "x2", "right"],
+        "ymax": ["ymax", "y_max", "y2", "bottom"],
+    }
+
+    caixas = []
+    for item in dados:
+        if isinstance(item, dict):
+            # Se vier aninhado dentro de uma chave "bbox"/"box"
+            if "bbox" in item:
+                item = item["bbox"]
+            elif "box" in item:
+                item = item["box"]
+
+        if isinstance(item, dict):
+            caixa = {}
+            for destino, possiveis in aliases.items():
+                for chave in possiveis:
+                    if chave in item:
+                        caixa[destino] = item[chave]
+                        break
+            if len(caixa) == 4:
+                caixas.append(caixa)
+        elif isinstance(item, (list, tuple)) and len(item) >= 4:
+            # Formato [xmin, ymin, xmax, ymax]
+            caixas.append({
+                "xmin": item[0], "ymin": item[1],
+                "xmax": item[2], "ymax": item[3],
+            })
+
+    return caixas
 
 def formatar_para_500x500(imagem_cortada):
     """Coloca o recorte no centro de uma imagem de 500x500 com fundo branco."""
