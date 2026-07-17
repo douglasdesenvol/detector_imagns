@@ -1,0 +1,4 @@
+openai
+streamlit
+opencv-python-headless
+PyMuPDF
