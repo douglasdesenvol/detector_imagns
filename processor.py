@@ -27,7 +27,6 @@ def identificar_caixas_na_pagina(pil_image):
     width, height = pil_image.size
 
     prompt = (
-        = (
     f"Esta imagem tem exatamente {width} pixels de largura e {height} pixels de altura. "
     "Analise a página e identifique todas as caixas de remédio/produtos presentes. "
     "Para cada caixa, retorne uma bounding box ampla que envolva a caixa INTEIRA e "
