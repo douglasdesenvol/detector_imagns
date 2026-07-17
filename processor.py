@@ -12,6 +12,8 @@ st.set_page_config(page_title="Cortador de Caixas de PDF", layout="centered")
 st.title("📦 Extrator e Cortador de Caixas (PDF) - joão victor lindo")
 st.write("Insira o PDF com as páginas dos medicamentos. O sistema vai extrair, recortar e formatar em 500x500 com fundo branco.")
 
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
 def image_to_base64(pil_image):
     """Converte uma imagem do Pillow diretamente para Base64 sem salvar no disco."""
     buffered = io.BytesIO()
