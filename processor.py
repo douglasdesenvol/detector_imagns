@@ -27,16 +27,14 @@ def identificar_caixas_na_pagina(pil_image):
     width, height = pil_image.size
 
     prompt = (
-        f"Esta imagem tem exatamente {width} pixels de largura e {height} pixels de altura. "
-        "Analise a página e identifique todas as caixas de remédio/produtos presentes. "
-        "Para cada caixa, retorne uma bounding box que envolva a caixa INTEIRA, "
-        "incluindo todas as bordas — nunca corte parte do produto. "
-        "Retorne estritamente um array JSON com as coordenadas na escala de 0 a 1000 "
-        "(onde 0 é o topo/esquerda e 1000 é a base/direita da imagem). "
-        "O formato deve ser exatamente uma lista de objetos: "
-        '[{"ymin": valor, "xmin": valor, "ymax": valor, "xmax": valor}, ...]. '
-        "Não inclua nenhum texto explicativo, apenas o JSON puro."
-    )
+        = (
+    f"Esta imagem tem exatamente {width} pixels de largura e {height} pixels de altura. "
+    "Analise a página e identifique todas as caixas de remédio/produtos presentes. "
+    "Para cada caixa, retorne uma bounding box ampla que envolva a caixa INTEIRA e "
+    "também QUALQUER TEXTO ou título do medicamento que esteja escrito logo acima ou ao lado dela. "
+    "Não economize espaço: é melhor deixar a caixinha maior do que cortar as bordas ou os textos do produto. "
+    "Retorne estritamente um array JSON com as coordenadas na escala de 0 a 1000..."
+)
 
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -127,8 +125,8 @@ if uploaded_file is not None:
 
                         # Margem de segurança: se a IA errar um pouco a borda,
                         # a caixa não vem cortada. 3% da dimensão da página.
-                        margem_x = int(width * 0.03)
-                        margem_y = int(height * 0.03)
+                        margem_x = int(width * 0.10)
+                        margem_y = int(height * 0.10)
                         xmin = max(0, xmin - margem_x)
                         ymin = max(0, ymin - margem_y)
                         xmax = min(width, xmax + margem_x)
