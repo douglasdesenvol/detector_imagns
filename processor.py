@@ -8,7 +8,6 @@ import fitz  # PyMuPDF (Não precisa de Poppler!)
 import streamlit as st
 
 # CONFIGURAÇÃO DA API
-Python
 import os
 from dotenv import load_dotenv
 
